@@ -1,65 +1,242 @@
-import Image from "next/image";
+'use client';
+
+import { useState, useEffect } from 'react';
+import { Plus, RefreshCw, AlertCircle, Database } from 'lucide-react';
+import WebsiteModal from './components/WebsiteModal';
+import WebsiteCard from './components/WebsiteCard';
+import { Website, CreateWebsiteDto } from '@/types';
 
 export default function Home() {
+  const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
+  const [websites, setWebsites] = useState<Website[]>([]);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [editingWebsite, setEditingWebsite] = useState<Website | null>(null);
+  const [error, setError] = useState<string>('');
+  const [connectionMode, setConnectionMode] = useState<'live' | 'error'>('live');
+
+  // Fetch websites from API
+  const fetchWebsites = async () => {
+    try {
+      setIsLoading(true);
+      setError('');
+      
+      const response = await fetch('/api/websites?userId=user-1');
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch websites: ${response.status} ${response.statusText}`);
+      }
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        setWebsites(result.data || []);
+        setConnectionMode('live');
+      } else {
+        throw new Error(result.error || 'Failed to fetch websites');
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      setError(`Failed to load websites: ${errorMessage}`);
+      setConnectionMode('error');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchWebsites();
+  }, []);
+
+  const handleAddWebsite = async (websiteData: CreateWebsiteDto) => {
+    try {
+      setError('');
+      
+      const response = await fetch('/api/websites', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(websiteData),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || `Failed to create website`);
+      }
+
+      await fetchWebsites();
+      
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      setError(errorMessage);
+      throw error;
+    }
+  };
+
+  const handleEditWebsite = (website: Website) => {
+    setEditingWebsite(website);
+    setIsModalOpen(true);
+  };
+
+  const handleDeleteWebsite = async (id: string) => {
+    try {
+      const response = await fetch(`/api/websites/${id}`, {
+        method: 'DELETE',
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${result.error || 'Failed to delete website'}`);
+      }
+
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to delete website');
+      }
+
+      // Remove the website from the local state immediately for better UX
+      setWebsites(prev => prev.filter(website => website._id !== id));
+      
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to delete website';
+      setError(errorMessage);
+      // Refresh the list to ensure consistency
+      await fetchWebsites();
+    }
+  };
+
+  const openModal = () => {
+    setError('');
+    setEditingWebsite(null);
+    setIsModalOpen(true);
+  };
+
+  const closeModal = () => {
+    setIsModalOpen(false);
+    setEditingWebsite(null);
+  };
+
+  const handleModalSubmit = editingWebsite 
+    ? handleAddWebsite
+    : handleAddWebsite;
+
+  const getConnectionStatus = () => {
+    switch (connectionMode) {
+      case 'live':
+        return { text: 'Connected to database', color: '#10b981', icon: Database };
+      case 'error':
+        return { text: 'Connection issues', color: '#ef4444', icon: AlertCircle };
+      default:
+        return { text: 'Unknown', color: '#6b7280', icon: AlertCircle };
+    }
+  };
+
+  const connectionStatus = getConnectionStatus();
+  const StatusIcon = connectionStatus.icon;
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <>
+      <header>
+        <div className="container">
+          <div className="header-content">
+            <div>
+              <h1>Cohort 2 Assignment</h1>
+              <p className="subtitle">Collect and preview your favorite websites</p>
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                color: connectionStatus.color,
+                fontSize: '0.875rem',
+                marginTop: '0.25rem'
+              }}>
+                <StatusIcon size={16} />
+                <span>{connectionStatus.text}</span>
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+              <button className="add-btn" onClick={openModal}>
+                <Plus size={20} />
+                Add Website
+              </button>
+              {/* <button 
+                onClick={fetchWebsites}
+                disabled={isLoading}
+                className="refresh-btn"
+              >
+                <RefreshCw size={20} className={isLoading ? 'animate-spin' : ''} />
+              </button> */}
+            </div>
+          </div>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
+      </header>
+
+      <main className="container">
+        {/* Error Display */}
+        {error && (
+          <div className="error-message">
+            <AlertCircle size={20} />
+            <div className="error-content">
+              <strong>Error</strong>
+              {error}
+            </div>
+            <button 
+              onClick={() => setError('')}
+              className="error-close-btn"
+            >
+              ×
+            </button>
+          </div>
+        )}
+
+        <section className="websites-section">
+          <div className="section-header">
+            <h2 className="section-title">Your Websites</h2>
+            {websites.length > 0 && (
+              <span className="website-count">
+                {websites.length} website{websites.length !== 1 ? 's' : ''}
+              </span>
+            )}
+          </div>
+          
+          {isLoading ? (
+            <div className="empty-state">
+              <RefreshCw size={32} className="animate-spin" />
+              <p>Loading websites...</p>
+            </div>
+          ) : websites.length === 0 ? (
+            <div className="empty-state">
+              <h2>No websites added yet</h2>
+              <p>Click the &quot;Add Website&quot; button to get started!</p>
+              <button 
+                className="add-btn" 
+                onClick={openModal}
+              >
+                <Plus size={20} />
+                Add Your First Website
+              </button>
+            </div>
+          ) : (
+            <div className="websites-grid">
+              {websites.map(website => (
+                <WebsiteCard 
+                  key={website._id} 
+                  website={website}
+                  onEdit={handleEditWebsite}
+                  onDelete={handleDeleteWebsite}
+                />
+              ))}
+            </div>
+          )}
+        </section>
       </main>
-    </div>
+
+      <WebsiteModal 
+        isOpen={isModalOpen}
+        onClose={closeModal}
+        onAddWebsite={handleModalSubmit}
+        isEditing={!!editingWebsite}
+        website={editingWebsite}
+      />
+    </>
   );
 }
