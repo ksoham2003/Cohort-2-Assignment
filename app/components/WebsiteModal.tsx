@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { X, Tag, Globe } from 'lucide-react';
-import { WebsiteModalProps, CreateWebsiteDto, Website } from '@/types';
+import { WebsiteModalProps, CreateWebsiteDto } from '@/types';
 
 export default function WebsiteModal({ 
   isOpen, 
@@ -229,19 +229,6 @@ export default function WebsiteModal({
                 </span>
               ))}
             </div>
-          </div>
-
-          <div className="form-group">
-            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
-              <input
-                type="checkbox"
-                checked={isPublic}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setIsPublic(e.target.checked)}
-                disabled={isLoading}
-              />
-              <Globe size={16} />
-              Make this website public
-            </label>
           </div>
 
           <button 

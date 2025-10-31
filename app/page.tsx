@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { Plus, RefreshCw, AlertCircle, Database } from 'lucide-react';
 import WebsiteModal from './components/WebsiteModal';
 import WebsiteCard from './components/WebsiteCard';
-import { Website, CreateWebsiteDto } from '@/types';
+import { Website, CreateWebsiteDto, UpdateWebsiteDto } from '@/types';
 
 export default function Home() {
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
@@ -72,6 +72,31 @@ export default function Home() {
     }
   };
 
+  const handleUpdateWebsite = async (id: string, websiteData: UpdateWebsiteDto) => {
+    try {
+      setError('');
+      
+      const response = await fetch(`/api/websites/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(websiteData),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || `Failed to update website`);
+      }
+
+      await fetchWebsites();
+      
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      setError(errorMessage);
+      throw error;
+    }
+  };
+
   const handleEditWebsite = (website: Website) => {
     setEditingWebsite(website);
     setIsModalOpen(true);
@@ -85,11 +110,7 @@ export default function Home() {
 
       const result = await response.json();
 
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${result.error || 'Failed to delete website'}`);
-      }
-
-      if (!result.success) {
+      if (!response.ok || !result.success) {
         throw new Error(result.error || 'Failed to delete website');
       }
 
@@ -116,7 +137,7 @@ export default function Home() {
   };
 
   const handleModalSubmit = editingWebsite 
-    ? handleAddWebsite
+    ? (websiteData: CreateWebsiteDto) => handleUpdateWebsite(editingWebsite._id, websiteData)
     : handleAddWebsite;
 
   const getConnectionStatus = () => {
@@ -158,13 +179,6 @@ export default function Home() {
                 <Plus size={20} />
                 Add Website
               </button>
-              {/* <button 
-                onClick={fetchWebsites}
-                disabled={isLoading}
-                className="refresh-btn"
-              >
-                <RefreshCw size={20} className={isLoading ? 'animate-spin' : ''} />
-              </button> */}
             </div>
           </div>
         </div>
@@ -189,15 +203,6 @@ export default function Home() {
         )}
 
         <section className="websites-section">
-          <div className="section-header">
-            <h2 className="section-title">Your Websites</h2>
-            {websites.length > 0 && (
-              <span className="website-count">
-                {websites.length} website{websites.length !== 1 ? 's' : ''}
-              </span>
-            )}
-          </div>
-          
           {isLoading ? (
             <div className="empty-state">
               <RefreshCw size={32} className="animate-spin" />
@@ -207,13 +212,6 @@ export default function Home() {
             <div className="empty-state">
               <h2>No websites added yet</h2>
               <p>Click the &quot;Add Website&quot; button to get started!</p>
-              <button 
-                className="add-btn" 
-                onClick={openModal}
-              >
-                <Plus size={20} />
-                Add Your First Website
-              </button>
             </div>
           ) : (
             <div className="websites-grid">

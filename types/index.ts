@@ -32,6 +32,7 @@ export interface WebsiteModalProps {
   isOpen: boolean;
   onClose: () => void;
   onAddWebsite: (website: CreateWebsiteDto) => Promise<void>;
+  onUpdateWebsite?: (id: string, website: UpdateWebsiteDto) => Promise<void>;
   isEditing?: boolean;
   website?: Website | null;
 }
