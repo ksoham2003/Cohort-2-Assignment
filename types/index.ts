@@ -49,3 +49,32 @@ export interface ApiResponse<T> {
   error?: string;
   message?: string;
 }
+
+// Add these to your existing types in types.ts
+
+export interface MongoError extends Error {
+  code?: number;
+  keyPattern?: Record<string, unknown>;
+  keyValue?: Record<string, unknown>;
+}
+
+export interface MongooseValidationError extends Error {
+  errors: Record<string, { message: string }>;
+  name: 'ValidationError';
+}
+
+export interface ApiErrorResponse {
+  success: false;
+  error: string;
+  details?: string;
+  message?: string;
+}
+
+// Type guard functions
+export function isMongooseValidationError(error: unknown): error is MongooseValidationError {
+  return error instanceof Error && error.name === 'ValidationError';
+}
+
+export function isMongoError(error: unknown): error is MongoError {
+  return error instanceof Error && 'code' in error;
+}

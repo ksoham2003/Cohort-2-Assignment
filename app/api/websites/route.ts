@@ -1,12 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import connectDB from '@/lib/mongodb';
 import Website from '@/lib/models/Website';
-import { CreateWebsiteDto } from '@/types';
+import { CreateWebsiteDto, isMongooseValidationError, isMongoError } from '@/types';
 
 // GET - Fetch all websites for a user
-export async function GET(request: NextRequest) {
+export async function GET(request: NextRequest): Promise<NextResponse> {
   try {
-    console.log('🔵 GET /api/websites - Fetching websites...');
     
     await connectDB();
 
@@ -25,20 +24,20 @@ export async function GET(request: NextRequest) {
       .lean()
       .exec();
 
-    console.log(`✅ Found ${websites.length} websites for user ${userId}`);
-
     return NextResponse.json({
       success: true,
       data: websites,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('❌ Error fetching websites:', error);
+    
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
     
     return NextResponse.json(
       { 
         success: false, 
         error: 'Failed to fetch websites. Please make sure MongoDB is running.',
-        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+        details: process.env.NODE_ENV === 'development' ? errorMessage : undefined
       },
       { status: 500 }
     );
@@ -46,14 +45,12 @@ export async function GET(request: NextRequest) {
 }
 
 // POST - Create a new website
-export async function POST(request: NextRequest) {
+export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
-    console.log('🔵 POST /api/websites - Creating website...');
     
     await connectDB();
 
     const body: CreateWebsiteDto = await request.json();
-    console.log('📦 Request body:', body);
 
     const { title, url, note, userId, tags = [], isPublic = false } = body;
 
@@ -73,7 +70,7 @@ export async function POST(request: NextRequest) {
     }
 
     // URL validation
-    const isValidUrl = (urlString: string) => {
+    const isValidUrl = (urlString: string): boolean => {
       try {
         let urlToCheck = urlString.trim();
         if (!urlToCheck.startsWith('http://') && !urlToCheck.startsWith('https://')) {
@@ -109,7 +106,6 @@ export async function POST(request: NextRequest) {
     });
 
     await website.save();
-    console.log('✅ Website saved successfully. ID:', website._id);
 
     return NextResponse.json({
       success: true,
@@ -117,26 +113,28 @@ export async function POST(request: NextRequest) {
       message: 'Website added successfully!'
     }, { status: 201 });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('❌ Error creating website:', error);
     
-    if (error.name === 'ValidationError') {
-      const errors = Object.values(error.errors).map((err: any) => err.message);
+    if (isMongooseValidationError(error)) {
+      const errors = Object.values(error.errors).map((err: { message: string }) => err.message);
       return NextResponse.json(
         { success: false, error: errors.join(', ') },
         { status: 400 }
       );
     }
 
-    if (error.code === 11000) {
+    if (isMongoError(error) && error.code === 11000) {
       return NextResponse.json(
         { success: false, error: 'A website with this URL already exists' },
         { status: 400 }
       );
     }
 
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+    
     return NextResponse.json(
-      { success: false, error: `Failed to create website: ${error.message}` },
+      { success: false, error: `Failed to create website: ${errorMessage}` },
       { status: 500 }
     );
   }

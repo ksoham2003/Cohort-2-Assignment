@@ -1,6 +1,6 @@
 import mongoose from 'mongoose';
 
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/cohort-assignment';
+const MONGODB_URI = process.env.MONGODB_URI ;
 
 if (!MONGODB_URI) {
   throw new Error('Please define the MONGODB_URI environment variable inside .env.local');
@@ -22,7 +22,7 @@ if (!global.mongoose) {
   global.mongoose = cached;
 }
 
-async function connectDB() {
+async function connectDB(): Promise<typeof mongoose> {
   if (cached.conn) {
     return cached.conn;
   }
@@ -31,17 +31,12 @@ async function connectDB() {
     const opts = {
       bufferCommands: false,
     };
-
-    console.log('🔗 Connecting to MongoDB...');
     
     cached.promise = mongoose.connect(MONGODB_URI, opts)
       .then((mongoose) => {
-        console.log('✅ Connected to MongoDB successfully!');
         return mongoose;
       })
-      .catch((error) => {
-        console.error('❌ MongoDB connection failed:', error.message);
-        console.log('💡 Make sure MongoDB is running on localhost:27017');
+      .catch((error: Error) => {
         cached.promise = null;
         throw error;
       });
